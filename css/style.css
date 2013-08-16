@@ -1,0 +1,21 @@
+body {
+	background: #83C1F5;
+	margin: 0;
+}
+
+#left {
+	float: left;
+}
+
+#content {
+	float: left;
+}
+
+.movie {
+	float: left;
+	margin: 5px;
+}
+
+#fullscreen {
+	background: #557E37;
+}

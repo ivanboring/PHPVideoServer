@@ -40,16 +40,16 @@ class indexing extends core
 	private function indexEntity($entity)
 	{
 		$entity = $this->getVidExtension($entity);
-		$entity = $this->getVidType($entity);
+		$vidtype = $this->getVidType($entity);
 		
-		if ($entity) {
+		if ($vidtype) {
 			$imdb_id = $this->getImdbId($entity);
 			if ($imdb_id) {
 				$imdb_id = str_pad($imdb_id, 7, 0, STR_PAD_LEFT);
 				$data = self::$imdb->getData($imdb_id);
 				$data['filepath'] = $entity;
 				$data['imdb_id'] = $imdb_id;
-				
+				$data['videotype'] = $vidtype;
 				if (isset($data['istv']) && $data['istv']) {
 					$this->saveEpisode($data);
 				} else {
@@ -140,7 +140,35 @@ class indexing extends core
 	
 	private function saveMovie($data)
 	{
-		self::$query->call(self::$config['movie_index'] . '/movie', 'POST', json_encode($data));
+		$response = self::$query->call(self::$config['movie_index'] . '/movie', 'POST', json_encode($data));
+		$this->saveImage($data, $response);
+	}
+	
+	private function saveImage($data, $response)
+	{
+		$name = $this->sanitize($data['title']);
+		$id = $response['_id'];
+		$two_point_id = substr($id, 0, 2);
+		$three_point_id = substr($id, 0, 3);
+		
+		// Create subfolder if not exists
+		$dir = 'img/' . $two_point_id;
+		if (!is_dir($dir)) {
+			mkdir($dir);
+		}
+
+		$dir .= '/' . $three_point_id;
+		if (!is_dir($dir)) {
+			mkdir($dir);
+		}
+		
+		$dir .= '/' . $id;
+		if (!is_dir($dir)) {
+			mkdir($dir);
+		}
+
+		rename('img/' . $name . '_image.jpg', $dir . '/image.jpg');
+		rename('img/' . $name . '_poster.jpg', $dir . '/poster.jpg');
 	}
 	
 	private function refreshAutocomplete()
@@ -242,7 +270,7 @@ class indexing extends core
 		if (file_exists(substr($file, 0, -3) . 'nfo')) {
 			$pattern = '/imdb\.[^\/]+\/title\/tt(\d+)/i';
 			preg_match($pattern, file_get_contents(substr($file, 0, -3) . 'nfo'), $matches);
-			return $matches[1];
+			return isset($matches[1]) ? $matches[1] : null;
 		}
 		return null;
 	}
@@ -267,7 +295,7 @@ class indexing extends core
 		$name = implode(' ', array_udiff($parts, self::$config['clean_name'], 'strcasecmp'));
 		$name = preg_replace('/(\d{4})/s', "($1)", $name);
 		$parts = preg_split('/\((\d{4})\)/s', $name, 0, PREG_SPLIT_DELIM_CAPTURE);
-		$name = $parts[0];
+		$name = preg_replace("/[^A-Za-z0-9 ]/", '', $parts[0]);
 		$name .= isset($parts[1]) ? '(' . $parts[1] . ')' : '';
 		return $name;
 	}
@@ -293,8 +321,9 @@ class indexing extends core
 		switch(finfo_file($this->fileinfo, $file)) {
 			case 'video/x-msvideo':
 			case 'video/mp4':
+			case 'video/ogg':
 			case 'application/octet-stream':
-				return $file;
+				return finfo_file($this->fileinfo, $file);
 				break;
 			default:
 				return null;

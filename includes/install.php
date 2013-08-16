@@ -61,6 +61,11 @@ class install extends core
 							'index' => 'no',
 							'type' => 'string',
 						),
+						'videotype' => 
+						array (
+							'index' => 'no',
+							'type' => 'string',
+						),						
 						'istv' => 
 						array (
 							'type' => 'boolean',
